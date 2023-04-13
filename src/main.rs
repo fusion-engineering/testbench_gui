@@ -5,7 +5,6 @@ use std::fs;
 // use std::io;
 use serialport::SerialPortType;
 use std::io::Write;
-use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -110,17 +109,6 @@ impl eframe::App for MyApp {
                         ui.label("No serial ports detected.");
                     }
                 });
-            // if ui.button("scan USB ports").clicked() {
-            //     self.ports_available = "".to_string();
-            //     let list = serialport::available_ports().unwrap();
-            //     for port in list {
-            //         Command::new("echo")
-            //             .arg(format!("{:?}", port.port_name))
-            //             .spawn()
-            //             .expect("ls command failed to start");
-            //         self.ports_available.push_str(&port.port_name);
-            //     }
-            // };
             ui.label(&self.ports_available);
             ui.separator();
             ui.horizontal(|ui| {
@@ -128,7 +116,16 @@ impl eframe::App for MyApp {
                 ui.text_edit_singleline(&mut self.serial_port)
                     .labelled_by(name_label.id);
             });
-
+            if ui.button("connect usb").clicked() {
+                self.log_text="".to_string();
+                let bluepill = Port::open(&self.serial_port);
+                match bluepill {
+                    Ok(_port) => {
+                        self.usb_connected = true;
+                    }
+                    Err(e) => self.log_text = format!("could not open port due to {e}").to_string(),
+                }
+            }
             if self.show_name {
                 ui.label(format!("Connecting to port '{}' ", self.port_name));
             }
@@ -140,47 +137,28 @@ impl eframe::App for MyApp {
             ui.heading("Dshot Sequence Parameters");
             egui::ComboBox::from_label("max value")
                 .selected_text(format!("{:?}", self.max_value))
+                .width(ui.available_width()/2.0)
                 .show_ui(ui, |ui| {
-                    ui.style_mut().wrap = Some(false);
-                    ui.set_min_width(60.0);
-                    ui.selectable_value(&mut self.max_value, 500, "500");
-                    ui.selectable_value(&mut self.max_value, 600, "600");
-                    ui.selectable_value(&mut self.max_value, 700, "700");
-                    ui.selectable_value(&mut self.max_value, 800, "800");
-                    ui.selectable_value(&mut self.max_value, 900, "900");
-                    ui.selectable_value(&mut self.max_value, 1000, "1000");
-                    ui.selectable_value(&mut self.max_value, 1100, "1100");
-                    ui.selectable_value(&mut self.max_value, 1200, "1200");
-                    ui.selectable_value(&mut self.max_value, 1300, "1300");
-                    ui.selectable_value(&mut self.max_value, 1400, "1400");
-                    ui.selectable_value(&mut self.max_value, 1500, "1500");
-                    ui.selectable_value(&mut self.max_value, 1600, "1600");
-                    ui.selectable_value(&mut self.max_value, 1700, "1700");
-                    ui.selectable_value(&mut self.max_value, 1800, "1800");
-                    ui.selectable_value(&mut self.max_value, 1900, "1900");
-                    ui.selectable_value(&mut self.max_value, 2000, "2000");
+                    for dshot in [500,600,700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800,1900,2000]{
+                        ui.selectable_value(&mut self.max_value, dshot, dshot.to_string());
+                    }
                 });
             egui::ComboBox::from_label("step size")
                 .selected_text(format!("{:?}", self.step_size))
+                .width(ui.available_width()/2.0)
                 .show_ui(ui, |ui| {
-                    ui.style_mut().wrap = Some(false);
-                    ui.set_min_width(60.0);
-                    ui.selectable_value(&mut self.step_size, 100, "100");
-                    ui.selectable_value(&mut self.step_size, 200, "200");
-                    ui.selectable_value(&mut self.step_size, 300, "300");
-                    ui.selectable_value(&mut self.step_size, 100, "400");
-                    ui.selectable_value(&mut self.step_size, 200, "500");
+                    for step_size in [100,200,300,400,500]{
+                        ui.selectable_value(&mut self.step_size, step_size, step_size.to_string());
+                    }
                 });
+                
             egui::ComboBox::from_label("time per step [ms]")
                 .selected_text(format!("{:?}", self.time_per_step))
+                .width(ui.available_width()/2.0)
                 .show_ui(ui, |ui| {
-                    ui.style_mut().wrap = Some(false);
-                    ui.set_min_width(60.0);
-                    ui.selectable_value(&mut self.time_per_step, 500, "300");
-                    ui.selectable_value(&mut self.time_per_step, 500, "400");
-                    ui.selectable_value(&mut self.time_per_step, 500, "500");
-                    ui.selectable_value(&mut self.time_per_step, 1000, "1000");
-                    ui.selectable_value(&mut self.time_per_step, 2000, "2000");
+                    for time in [100,200,500,1000,2000]{
+                        ui.selectable_value(&mut self.time_per_step, time,time.to_string());
+                    }
                 });
 
             if ui.button("Generate sequence").clicked() {
@@ -189,34 +167,13 @@ impl eframe::App for MyApp {
                 self.gen_seq = true;
             };
             ui.separator();
-            if ui.button("connect usb").clicked() {
-                let bluepill = Port::open(&self.serial_port);
-                match bluepill {
-                    Ok(_port) => {
-                        self.usb_connected = true;
-                    }
-                    Err(e) => self.log_text = format!("could not open port due to {e}").to_string(),
-                }
-            }
-            // if ui.button("Connect to USB").clicked() {
-            //     self.usb_connected = true;
-
-            // match Some(Port::open(&self.port_name)) {
-            //     Some(port) => self.bluepill = Some(SOmeport),
-            //     None => {}
-            // }
-            // if let self.bluepill = Some(Port::open(&self.port_name)) {
-            //     {}
-            // } else {}
-            // self.bluepill = Some(Port::open(&self.port_name));
-            // };
+           
             if self.usb_connected && ui.button("Start measurement").clicked() {
                 if self.gen_seq {
                     let term = Arc::new(AtomicBool::new(false));
                     signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&term)).unwrap();
                     println!("Testbench started");
 
-                    // let mut bluepill = Port::open(&self.port_name);
                     let mut file = fs::File::create(&self.filename).expect("Error creating file");
                     let mut write_buf = ArrayString::<[_; 64]>::new();
                     let mut data_vector: std::vec::Vec<ArrayString<[_; 64]>> = Vec::new();
