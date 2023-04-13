@@ -1,3 +1,5 @@
+use crate::containers::ComboBox;
+use eframe::egui::*;
 pub fn generate_sequence(max_value: u128, time_per_step: u128, step_size: u128) -> Vec<[u128; 2]> {
     let mut time = 0;
     let mut dshot_value = 0;
@@ -126,4 +128,43 @@ impl Port {
         io::stdin().read_line(&mut input_txt).unwrap();
         // self.port.write(&[string_to_send]).unwrap();
     }
+}
+
+pub fn max_value_combobox(ui: &mut Ui, mut max_value: u128) -> InnerResponse<Option<()>> {
+    ComboBox::from_label("max value")
+        .selected_text(format!("{:?}", max_value))
+        .show_ui(ui, |ui| {
+            ui.style_mut().wrap = Some(false);
+            ui.set_min_width(60.0);
+            ui.selectable_value(&mut max_value, 500, "500");
+            ui.selectable_value(&mut max_value, 600, "600");
+            ui.selectable_value(&mut max_value, 700, "700");
+            ui.selectable_value(&mut max_value, 800, "800");
+            ui.selectable_value(&mut max_value, 900, "900");
+            ui.selectable_value(&mut max_value, 1000, "1000");
+            ui.selectable_value(&mut max_value, 1100, "1100");
+            ui.selectable_value(&mut max_value, 1200, "1200");
+            ui.selectable_value(&mut max_value, 1300, "1300");
+            ui.selectable_value(&mut max_value, 1400, "1400");
+            ui.selectable_value(&mut max_value, 1500, "1500");
+            ui.selectable_value(&mut max_value, 1600, "1600");
+            ui.selectable_value(&mut max_value, 1700, "1700");
+            ui.selectable_value(&mut max_value, 1800, "1800");
+            ui.selectable_value(&mut max_value, 1900, "1900");
+            ui.selectable_value(&mut max_value, 2000, "2000");
+        })
+}
+
+pub fn step_size_combobox(ui: &mut Ui, mut step_size: u128) -> InnerResponse<Option<()>> {
+    ComboBox::from_label("step size")
+        .selected_text(format!("{:?}", step_size))
+        .show_ui(ui, |ui| {
+            ui.style_mut().wrap = Some(false);
+            ui.set_min_width(60.0);
+            ui.selectable_value(&mut step_size, 100, "100");
+            ui.selectable_value(&mut step_size, 200, "200");
+            ui.selectable_value(&mut step_size, 300, "300");
+            ui.selectable_value(&mut step_size, 400, "400");
+            ui.selectable_value(&mut step_size, 500, "500");
+        })
 }

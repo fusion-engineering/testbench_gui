@@ -3,6 +3,7 @@ use eframe::egui;
 use std::fmt::Write as fmt_Write;
 use std::fs;
 // use std::io;
+use serialport::SerialPortType;
 use std::io::Write;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,6 +24,8 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 pub struct MyApp {
+    available_serial_ports: Option<Vec<serialport::SerialPortInfo>>,
+    serial_port: String,
     max_value: u128,
     time_per_step: u128,
     step_size: u128,
@@ -40,6 +43,8 @@ pub struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
+            available_serial_ports: None,
+            serial_port: "".to_string(),
             max_value: 500,
             time_per_step: 2000,
             step_size: 100,
@@ -61,22 +66,66 @@ impl eframe::App for MyApp {
         egui::SidePanel::left("my_left_panel").show(ctx, |ui| {
             ui.heading("USB port");
             ui.separator();
-            if ui.button("scan USB ports").clicked() {
-                self.ports_available = "".to_string();
-                let list = serialport::available_ports().unwrap();
-                for port in list {
-                    Command::new("echo")
-                        .arg(format!("{:?}", port.port_name))
-                        .spawn()
-                        .expect("ls command failed to start");
-                    self.ports_available.push_str(&port.port_name);
-                }
-            };
+            egui::ComboBox::from_id_source("serial-port")
+                .width(ui.available_width() - 10.0)
+                .selected_text(&self.serial_port)
+                .show_ui(ui, |ui| {
+                    let ports = self
+                        .available_serial_ports
+                        .get_or_insert_with(|| serialport::available_ports().unwrap_or_default());
+                    let mut last_type = "Other:";
+                    for p in ports.iter() {
+                        let (t, desc) = match &p.port_type {
+                            SerialPortType::UsbPort(usb) => ("USB:", {
+                                let mut desc = format!("USB ID: {:04x}:{:04x}", usb.vid, usb.pid);
+                                if let Some(m) = &usb.manufacturer {
+                                    desc += &format!("\nManufacturer: {}", m);
+                                }
+                                if let Some(p) = &usb.product {
+                                    desc += &format!("\nProduct: {}", p);
+                                }
+                                if let Some(s) = &usb.serial_number {
+                                    desc += &format!("\nSerial number: {}", s);
+                                }
+                                Some(desc)
+                            }),
+                            SerialPortType::BluetoothPort => ("Bluetooth:", None),
+                            SerialPortType::PciPort => ("Built-in:", None),
+                            _ => ("Other:", None),
+                        };
+                        if t != last_type {
+                            ui.label(t);
+                            last_type = t;
+                        }
+                        let r = ui.selectable_value(
+                            &mut self.serial_port,
+                            p.port_name.clone(),
+                            format!("{}", p.port_name),
+                        );
+                        if let Some(desc) = desc {
+                            r.on_hover_text(desc);
+                        }
+                    }
+                    if ports.is_empty() {
+                        ui.label("No serial ports detected.");
+                    }
+                });
+            // if ui.button("scan USB ports").clicked() {
+            //     self.ports_available = "".to_string();
+            //     let list = serialport::available_ports().unwrap();
+            //     for port in list {
+            //         Command::new("echo")
+            //             .arg(format!("{:?}", port.port_name))
+            //             .spawn()
+            //             .expect("ls command failed to start");
+            //         self.ports_available.push_str(&port.port_name);
+            //     }
+            // };
             ui.label(&self.ports_available);
             ui.separator();
             ui.horizontal(|ui| {
                 let name_label = ui.label("Port name: ");
-                ui.text_edit_singleline(&mut self.port_name)
+                ui.text_edit_singleline(&mut self.serial_port)
                     .labelled_by(name_label.id);
             });
 
@@ -141,8 +190,13 @@ impl eframe::App for MyApp {
             };
             ui.separator();
             if ui.button("connect usb").clicked() {
-                let mut bluepill = Port::open(&self.port_name);
-                self.usb_connected = true;
+                let bluepill = Port::open(&self.serial_port);
+                match bluepill {
+                    Ok(_port) => {
+                        self.usb_connected = true;
+                    }
+                    Err(e) => self.log_text = format!("could not open port due to {e}").to_string(),
+                }
             }
             // if ui.button("Connect to USB").clicked() {
             //     self.usb_connected = true;
