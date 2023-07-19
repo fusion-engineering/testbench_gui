@@ -51,7 +51,7 @@ impl Default for MyApp {
             show_name: false,
             dshot_sequence: Vec::new(),
             gen_seq: false,
-            filename: "data".to_string(),
+            filename: "testdata".to_string(),
             log_text: "".to_string(),
             ports_available: "".to_string(),
             usb_connected: false,
@@ -117,7 +117,7 @@ impl eframe::App for MyApp {
                     .labelled_by(name_label.id);
             });
             if ui.button("connect usb").clicked() {
-                self.log_text="".to_string();
+                self.log_text = "".to_string();
                 let bluepill = Port::open(&self.serial_port);
                 match bluepill {
                     Ok(_port) => {
@@ -137,27 +137,30 @@ impl eframe::App for MyApp {
             ui.heading("Dshot Sequence Parameters");
             egui::ComboBox::from_label("max value")
                 .selected_text(format!("{:?}", self.max_value))
-                .width(ui.available_width()/2.0)
+                .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for dshot in [500,600,700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800,1900,2000]{
+                    for dshot in [
+                        500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700,
+                        1800, 1900, 2000,
+                    ] {
                         ui.selectable_value(&mut self.max_value, dshot, dshot.to_string());
                     }
                 });
             egui::ComboBox::from_label("step size")
                 .selected_text(format!("{:?}", self.step_size))
-                .width(ui.available_width()/2.0)
+                .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for step_size in [100,200,300,400,500]{
+                    for step_size in [100, 200, 300, 400, 500] {
                         ui.selectable_value(&mut self.step_size, step_size, step_size.to_string());
                     }
                 });
-                
+
             egui::ComboBox::from_label("time per step [ms]")
                 .selected_text(format!("{:?}", self.time_per_step))
-                .width(ui.available_width()/2.0)
+                .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for time in [100,200,500,1000,2000]{
-                        ui.selectable_value(&mut self.time_per_step, time,time.to_string());
+                    for time in [100, 200, 500, 1000, 2000] {
+                        ui.selectable_value(&mut self.time_per_step, time, time.to_string());
                     }
                 });
 
@@ -167,7 +170,7 @@ impl eframe::App for MyApp {
                 self.gen_seq = true;
             };
             ui.separator();
-           
+
             if self.usb_connected && ui.button("Start measurement").clicked() {
                 if self.gen_seq {
                     let term = Arc::new(AtomicBool::new(false));
@@ -190,10 +193,10 @@ impl eframe::App for MyApp {
                         write_buf = ArrayString::<[_; 64]>::new();
                         if time <= self.dshot_sequence[i][0] {
                             writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
-                            let _ = self
-                                .bluepill
-                                .as_mut()
-                                .map(|bluepill| bluepill.port.write(write_buf.as_bytes()));
+                            // let _ = self
+                            //     .bluepill
+                            //     .as_mut()
+                            //     .map(|bluepill| bluepill.port.write(write_buf.as_bytes()));
                         } else if time > self.dshot_sequence[i][0] {
                             i += 1;
                         }
@@ -203,7 +206,6 @@ impl eframe::App for MyApp {
                         let mut data_buffer = ArrayString::<[_; 64]>::new();
                         let mut buf: [u8; 1] = [0];
                         let mut read = true;
-
                         while read {
                             let _ = self
                                 .bluepill
