@@ -43,7 +43,7 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             available_serial_ports: None,
-            serial_port: "".to_string(),
+            serial_port: "/dev/tty.usbmodem11".to_string(),
             max_value: 500,
             time_per_step: 2000,
             step_size: 100,
@@ -237,7 +237,6 @@ impl eframe::App for MyApp {
                 writeln!(write_buf, "A{}", 000).unwrap();
                 bluepill.clear_buffers();
                 println!("buffers cleared");
-
             }
         });
 
