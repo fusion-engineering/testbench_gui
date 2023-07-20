@@ -4,12 +4,12 @@ use std::fmt::Write as fmt_Write;
 use std::fs;
 // use std::io;
 use serialport::SerialPortType;
+
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use testbench_gui::*;
-
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1000.0, 400.0)),
@@ -36,7 +36,7 @@ pub struct MyApp {
     log_text: String,
     ports_available: String,
     usb_connected: bool,
-    bluepill: Option<Port>,
+    // bluepill: Option<Port>,
 }
 
 impl Default for MyApp {
@@ -47,15 +47,15 @@ impl Default for MyApp {
             max_value: 500,
             time_per_step: 2000,
             step_size: 100,
-            port_name: "/dev/tty.usbmodem11".to_owned(),
-            show_name: true,
+            port_name: "".to_owned(),
+            show_name: false,
             dshot_sequence: Vec::new(),
             gen_seq: false,
             filename: "data".to_string(),
             log_text: "".to_string(),
             ports_available: "".to_string(),
             usb_connected: false,
-            bluepill: None,
+            // bluepill: None,
         }
     }
 }
@@ -109,6 +109,8 @@ impl eframe::App for MyApp {
                         ui.label("No serial ports detected.");
                     }
                 });
+            // Serial port name
+            // self.serial_port = self.port_name.clone();
             ui.label(&self.ports_available);
             ui.separator();
             ui.horizontal(|ui| {
@@ -116,16 +118,19 @@ impl eframe::App for MyApp {
                 ui.text_edit_singleline(&mut self.serial_port)
                     .labelled_by(name_label.id);
             });
-            if ui.button("connect usb").clicked() {
-                self.log_text="".to_string();
-                let bluepill = Port::open(&self.serial_port);
-                match bluepill {
-                    Ok(_port) => {
-                        self.usb_connected = true;
-                    }
-                    Err(e) => self.log_text = format!("could not open port due to {e}").to_string(),
-                }
-            }
+
+            // if ui.button("connect usb").clicked() {
+            // self.log_text = "".to_string();
+            // let bluepill = Port::open(&self.serial_port);
+            // match bluepill {
+            //     Ok(_port) => {
+            //         self.usb_connected = true;
+            //         self.log_text =
+            //             format!("Succesfully connected to {:?}", self.port_name).to_string()
+            //     }
+            //     Err(e) => self.log_text = format!("could not open port due to {e}").to_string(),
+            // }
+            // }
             if self.show_name {
                 ui.label(format!("Connecting to port '{}' ", &self.serial_port));
             }
@@ -137,27 +142,30 @@ impl eframe::App for MyApp {
             ui.heading("Dshot Sequence Parameters");
             egui::ComboBox::from_label("max value")
                 .selected_text(format!("{:?}", self.max_value))
-                .width(ui.available_width()/2.0)
+                .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for dshot in [500,600,700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800,1900,2000]{
+                    for dshot in [
+                        500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700,
+                        1800, 1900, 2000,
+                    ] {
                         ui.selectable_value(&mut self.max_value, dshot, dshot.to_string());
                     }
                 });
             egui::ComboBox::from_label("step size")
                 .selected_text(format!("{:?}", self.step_size))
-                .width(ui.available_width()/2.0)
+                .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for step_size in [100,200,300,400,500]{
+                    for step_size in [100, 200, 300, 400, 500] {
                         ui.selectable_value(&mut self.step_size, step_size, step_size.to_string());
                     }
                 });
-                
+
             egui::ComboBox::from_label("time per step [ms]")
                 .selected_text(format!("{:?}", self.time_per_step))
-                .width(ui.available_width()/2.0)
+                .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for time in [100,200,500,1000,2000]{
-                        ui.selectable_value(&mut self.time_per_step, time,time.to_string());
+                    for time in [100, 200, 500, 1000, 2000] {
+                        ui.selectable_value(&mut self.time_per_step, time, time.to_string());
                     }
                 });
 
@@ -167,80 +175,72 @@ impl eframe::App for MyApp {
                 self.gen_seq = true;
             };
             ui.separator();
-           
-            if self.usb_connected && ui.button("Start measurement").clicked() {
-                if self.gen_seq {
-                    let term = Arc::new(AtomicBool::new(false));
-                    signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&term)).unwrap();
-                    println!("Testbench started");
 
-                    let mut file = fs::File::create(&self.filename).expect("Error creating file");
-                    let mut write_buf = ArrayString::<[_; 64]>::new();
-                    let mut data_vector: std::vec::Vec<ArrayString<[_; 64]>> = Vec::new();
-                    let mut i = 0;
-                    let now = Instant::now();
-                    println!("starting to loop over sequence");
-                    // loop over sequence
-                    while (!term.load(Ordering::Relaxed))
-                        && (now.elapsed().as_millis())
-                            < self.dshot_sequence[self.dshot_sequence.len() - 1][0]
-                    {   
-                        // Write throttle command to bluepill
-                        let time = now.elapsed().as_millis();
-                        write_buf = ArrayString::<[_; 64]>::new();
-                        
-                        if time <= self.dshot_sequence[i][0] {
-                            writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
-                            println!("{}",write_buf.clone());
-                            let _ = self
-                                .bluepill
-                                .as_mut()
-                                .map(|bluepill| bluepill.port.write(write_buf.as_bytes()));
-                        } else if time > self.dshot_sequence[i][0] {
-                            i += 1;
+            if ui.button("Start measurement").clicked() {
+                // ctrl-c handling (NOT WORKING?)
+                let term = Arc::new(AtomicBool::new(false));
+                signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&term)).unwrap();
+
+                println!("Testbench started");
+                let mut file = fs::File::create(&self.filename).expect("Error creating file");
+                let mut write_buf = ArrayString::<[_; 64]>::new();
+                let mut data_vector: std::vec::Vec<ArrayString<[_; 64]>> = Vec::new();
+                let mut i = 0;
+                let now = Instant::now();
+
+                //generate sequence
+                // if self.gen_seq {
+                self.log_text = "".to_string();
+                let mut bluepill = Port::open(&self.serial_port);
+                // } else if !self.gen_seq {
+                //     self.log_text = "please generate Dshot sequence first".to_string()
+                // }
+
+                // loop over sequence
+                while (!term.load(Ordering::Relaxed))
+                    && (now.elapsed().as_millis())
+                        < self.dshot_sequence[self.dshot_sequence.len() - 1][0]
+                {
+                    // Write throttle command to bluepill
+                    let time = now.elapsed().as_millis();
+                    write_buf = ArrayString::<[_; 64]>::new();
+                    if time <= self.dshot_sequence[i][0] {
+                        writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
+                        let _ = bluepill.port.write(write_buf.as_bytes());
+                        // println!("{write_buf}")
+                    } else if time > self.dshot_sequence[i][0] {
+                        i += 1;
+                    }
+
+                    // Read back sensor data from bluepill
+                    let mut input_buffer = ArrayString::<[_; 64]>::new();
+                    let mut data_buffer = ArrayString::<[_; 64]>::new();
+                    let mut buf = [0];
+                    let mut read = true;
+                    while read {
+                        let _ = bluepill.port.read(&mut buf);
+                        input_buffer.push(buf[0] as char);
+                        if let Some(data) = input_buffer.strip_suffix('\n') {
+                            data_buffer.push_str(&format!("{},", &time.to_string()));
+                            data_buffer.push_str(data);
+                            read = false;
                         }
+                    }
+                    println!("{data_buffer}");
+                    data_vector.push(data_buffer);
+                }
 
-                        // Read back sensor data from bluepill
-                        let mut input_buffer = ArrayString::<[_; 64]>::new();
-                        let mut data_buffer = ArrayString::<[_; 64]>::new();
-                        let mut buf: [u8; 1] = [0];
-                        let mut read = true;
-                        
-                        while read {
-                            let _ = self
-                                .bluepill
-                                .as_mut()
-                                .map(|bluepill| bluepill.port.read(&mut buf));
-                            input_buffer.push(buf[0] as char);
-                            println!("{}, = input buffer" ,input_buffer);
-                            if let Some(data) = input_buffer.strip_suffix('\n') {
-                                data_buffer.push_str(&format!("{},", &time.to_string()));
-                                data_buffer.push_str(data);
-                                read = false;
-                            }
-                        }
-                        
-                        println!("{data_buffer}");
-                        data_vector.push(data_buffer);
-                    }
+                // Exit procedure: write data into file, send 0 to motor and clear buffer
+                for i in &data_vector {
+                    writeln!(file, "{i}").expect("Could not write file");
+                }
+                writeln!(write_buf, "A{}", 000).unwrap();
+                bluepill.clear_buffers();
+                println!("buffers cleared");
 
-                    // Exit procedure: write data into file, send 0 to motor and clear buffer
-                    for i in &data_vector {
-                        writeln!(file, "{i}").expect("Could not write file");
-                    }
-                    writeln!(write_buf, "A{}", 000).unwrap();
-                    if let Some(bluepill) = self.bluepill.as_mut() {
-                        bluepill.clear_buffers()
-                    }
-                    // self.bluepill
-                    //     .as_mut()
-                    //     .map(|bluepill| bluepill.clear_buffers());
-                    println!("buffers cleared");
-                } else if !self.gen_seq {
-                    self.log_text = "please generate Dshot sequence first".to_string()
-                }   
             }
         });
+
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
             ui.heading("Sequence Display");
             ui.separator();
