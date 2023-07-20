@@ -51,7 +51,7 @@ impl Default for MyApp {
             show_name: false,
             dshot_sequence: Vec::new(),
             gen_seq: false,
-            filename: "data".to_string(),
+            filename: "./data/data.csv".to_string(),
             log_text: "".to_string(),
             ports_available: "".to_string(),
             usb_connected: false,
@@ -116,6 +116,11 @@ impl eframe::App for MyApp {
             ui.horizontal(|ui| {
                 let name_label = ui.label("Port name: ");
                 ui.text_edit_singleline(&mut self.serial_port)
+                    .labelled_by(name_label.id);
+            });
+            ui.horizontal(|ui| {
+                let name_label = ui.label("File name: ");
+                ui.text_edit_singleline(&mut self.filename)
                     .labelled_by(name_label.id);
             });
 
