@@ -48,7 +48,7 @@ impl Default for MyApp {
             time_per_step: 2000,
             step_size: 100,
             port_name: "/dev/tty.usbmodem11".to_owned(),
-            show_name: false,
+            show_name: true,
             dshot_sequence: Vec::new(),
             gen_seq: false,
             filename: "data".to_string(),
@@ -127,7 +127,7 @@ impl eframe::App for MyApp {
                 }
             }
             if self.show_name {
-                ui.label(format!("Connecting to port '{}' ", self.port_name));
+                ui.label(format!("Connecting to port '{}' ", &self.serial_port));
             }
         });
 
@@ -179,17 +179,19 @@ impl eframe::App for MyApp {
                     let mut data_vector: std::vec::Vec<ArrayString<[_; 64]>> = Vec::new();
                     let mut i = 0;
                     let now = Instant::now();
-
+                    println!("starting to loop over sequence");
                     // loop over sequence
                     while (!term.load(Ordering::Relaxed))
                         && (now.elapsed().as_millis())
                             < self.dshot_sequence[self.dshot_sequence.len() - 1][0]
-                    {
+                    {   
                         // Write throttle command to bluepill
                         let time = now.elapsed().as_millis();
                         write_buf = ArrayString::<[_; 64]>::new();
+                        
                         if time <= self.dshot_sequence[i][0] {
                             writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
+                            println!("{}",write_buf.clone());
                             let _ = self
                                 .bluepill
                                 .as_mut()
@@ -203,19 +205,21 @@ impl eframe::App for MyApp {
                         let mut data_buffer = ArrayString::<[_; 64]>::new();
                         let mut buf: [u8; 1] = [0];
                         let mut read = true;
-
+                        
                         while read {
                             let _ = self
                                 .bluepill
                                 .as_mut()
                                 .map(|bluepill| bluepill.port.read(&mut buf));
                             input_buffer.push(buf[0] as char);
+                            println!("{}, = input buffer" ,input_buffer);
                             if let Some(data) = input_buffer.strip_suffix('\n') {
                                 data_buffer.push_str(&format!("{},", &time.to_string()));
                                 data_buffer.push_str(data);
                                 read = false;
                             }
                         }
+                        
                         println!("{data_buffer}");
                         data_vector.push(data_buffer);
                     }
@@ -234,7 +238,7 @@ impl eframe::App for MyApp {
                     println!("buffers cleared");
                 } else if !self.gen_seq {
                     self.log_text = "please generate Dshot sequence first".to_string()
-                }
+                }   
             }
         });
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
