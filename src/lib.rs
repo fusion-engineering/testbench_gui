@@ -30,35 +30,30 @@ pub struct Port {
     pub port: Box<dyn serialport::SerialPort>,
 }
 impl Port {
-    pub fn open(portname: &str) -> Result<Port, serialport::Error> {
-        let port_name = portname;
-        match serialport::open(&port_name) {
-            Ok(port) => {
-                let mut new_port = port;
-                new_port.set_timeout(Duration::from_millis(2000)).unwrap();
-                new_port.set_baud_rate(9600).unwrap();
-                Ok(Port { port: new_port })
-            }
-            Err(e) => Err(e),
-        }
-        // let mut new_port = serialport::open(&port_name).unwrap_or_else(|e| {
-        //     eprintln!("Failed to open \"{port_name}\". Error: {e}");
-        //     std::process::exit(1);
-        // });
-        // new_port.set_timeout(Duration::from_millis(2000)).unwrap();
-        // new_port.set_baud_rate(9600).unwrap();
-        // Ok(Port { port: new_port })
-    }
-    // pub fn open(portname: &str) -> Port {
+    // Code below is for Option <Port> rather than returning a Port
+    // pub fn open(portname: &str) -> Result<Port, serialport::Error> {
     //     let port_name = portname;
-    //     let mut new_port = serialport::open(&port_name).unwrap_or_else(|e| {
-    //         eprintln!("Failed to open \"{port_name}\". Error: {e}");
-    //         std::process::exit(1);
-    //     });
-    //     new_port.set_timeout(Duration::from_millis(2000)).unwrap();
-    //     new_port.set_baud_rate(9600).unwrap();
-    //     Port { port: new_port }
-    // }
+    //     match serialport::open(&port_name) {
+    //         Ok(port) => {
+    //             let mut new_port = port;
+    //             new_port.set_timeout(Duration::from_millis(2000)).unwrap();
+    //             new_port.set_baud_rate(9600).unwrap();
+    //             Ok(Port { port: new_port })
+    //         }
+    //         Err(e) => Err(e),
+    //     }
+
+    pub fn open(portname: &str) -> Port {
+        let port_name = portname;
+        let mut new_port = serialport::open(&port_name).unwrap_or_else(|e| {
+            eprintln!("Failed to open \"{port_name}\". Error: {e}");
+            std::process::exit(1);
+        });
+        new_port.set_timeout(Duration::from_millis(2000)).unwrap();
+        new_port.set_baud_rate(9600).unwrap();
+        Port { port: new_port }
+    }
+
     pub fn clear_buffers(&mut self) {
         self.port
             .clear(serialport::ClearBuffer::Input)
@@ -67,27 +62,6 @@ impl Port {
             .clear(serialport::ClearBuffer::Output)
             .expect("Failed to discard output buffer");
     }
-
-    // pub fn read_serial_data(&mut self) -> &str{
-    //     let mut input_buffer = ArrayString::<[_; 64]>::new();
-    //     while self.port.bytes_to_read().unwrap() < 8 {
-    //         // wait until buffer is filled;
-    //     }
-    //     let mut data = "";
-    //     loop {
-    //         let mut buf = [0];
-    //         match self.port.read(&mut buf) {
-    //             Ok(1) => input_buffer.push(buf[0] as char),
-    //             _ => {},
-    //         }
-    //         if let Some(input) = input_buffer.strip_suffix('\n') {
-    //             data = input;
-    //             input_buffer.clear();
-    //             break
-    //         }
-    //     }
-    //     data
-    // }
 
     pub fn read_serial_data_raw(&mut self) -> std::vec::Vec<u8> {
         let mut read_buf = vec![0; 8];
