@@ -132,7 +132,7 @@ impl eframe::App for MyApp {
             // }
             // }
             if self.show_name {
-                ui.label(format!("Connecting to port '{}' ", self.port_name));
+                ui.label(format!("Connecting to port '{}' ", &self.serial_port));
             }
         });
 
@@ -237,6 +237,7 @@ impl eframe::App for MyApp {
                 writeln!(write_buf, "A{}", 000).unwrap();
                 bluepill.clear_buffers();
                 println!("buffers cleared");
+
             }
         });
 
