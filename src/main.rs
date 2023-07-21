@@ -28,15 +28,75 @@ pub struct MyApp {
     max_value: u128,
     time_per_step: u128,
     step_size: u128,
-    port_name: String,
+    // port_name: String,
     show_name: bool,
     dshot_sequence: Vec<[u128; 2]>,
     gen_seq: bool,
     filename: String,
     log_text: String,
     ports_available: String,
-    usb_connected: bool,
+    // usb_connected: bool,
     // bluepill: Option<Port>,
+}
+impl MyApp {
+    fn run_measurement(&self) {
+        // ctrl-c handling (NOT WORKING?)
+
+        let term = Arc::new(AtomicBool::new(false));
+        signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&term)).unwrap();
+
+        println!("Testbench started");
+        let mut file = fs::File::create(&self.filename).expect("Error creating file");
+        let mut write_buf = ArrayString::<[_; 64]>::new();
+        let mut data_vector: std::vec::Vec<ArrayString<[_; 64]>> = Vec::new();
+        let mut i = 0;
+        let now = Instant::now();
+
+        let mut bluepill = Port::open(&self.serial_port);
+
+        while (!term.load(Ordering::Relaxed))
+            && (now.elapsed().as_millis()) < self.dshot_sequence[self.dshot_sequence.len() - 1][0]
+        {
+            // Write throttle command to bluepill
+            let time = now.elapsed().as_millis();
+            write_buf = ArrayString::<[_; 64]>::new();
+            if time <= self.dshot_sequence[i][0] {
+                writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
+                let _ = bluepill.port.write(write_buf.as_bytes());
+                println!("{write_buf}")
+            } else if time > self.dshot_sequence[i][0] {
+                i += 1;
+            }
+
+            // Read back sensor data from bluepill
+            let mut input_buffer = ArrayString::<[_; 64]>::new();
+            let mut data_buffer = ArrayString::<[_; 64]>::new();
+            let mut buf = [0];
+            let mut read = true;
+            let mut read_timeout_counter = 0;
+            while read && read_timeout_counter < 100 {
+                read_timeout_counter += 1;
+                println!("{read_timeout_counter}");
+                let _ = bluepill.port.read(&mut buf);
+                input_buffer.push(buf[0] as char);
+                if let Some(data) = input_buffer.strip_suffix('\n') {
+                    data_buffer.push_str(&format!("{},", &time.to_string()));
+                    data_buffer.push_str(data);
+                    read = false;
+                }
+            }
+            println!("{data_buffer}");
+            data_vector.push(data_buffer);
+        }
+
+        // Exit procedure: write data into file, send 0 to motor and clear buffer
+        for i in &data_vector {
+            writeln!(file, "{i}").expect("Could not write file");
+        }
+        writeln!(write_buf, "A{}", 000).unwrap();
+        bluepill.clear_buffers();
+        println!("buffers cleared");
+    }
 }
 
 impl Default for MyApp {
@@ -47,14 +107,14 @@ impl Default for MyApp {
             max_value: 500,
             time_per_step: 2000,
             step_size: 100,
-            port_name: "".to_owned(),
+            // port_name: "".to_owned(),
             show_name: false,
             dshot_sequence: Vec::new(),
             gen_seq: false,
             filename: "./data/data.csv".to_string(),
             log_text: "".to_string(),
             ports_available: "".to_string(),
-            usb_connected: false,
+            // usb_connected: false,
             // bluepill: None,
         }
     }
@@ -182,66 +242,11 @@ impl eframe::App for MyApp {
             ui.separator();
 
             if ui.button("Start measurement").clicked() {
-                // ctrl-c handling (NOT WORKING?)
-                let term = Arc::new(AtomicBool::new(false));
-                signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&term)).unwrap();
-
-                println!("Testbench started");
-                let mut file = fs::File::create(&self.filename).expect("Error creating file");
-                let mut write_buf = ArrayString::<[_; 64]>::new();
-                let mut data_vector: std::vec::Vec<ArrayString<[_; 64]>> = Vec::new();
-                let mut i = 0;
-                let now = Instant::now();
-
-                //generate sequence
-                // if self.gen_seq {
-                self.log_text = "".to_string();
-                let mut bluepill = Port::open(&self.serial_port);
-                // } else if !self.gen_seq {
-                //     self.log_text = "please generate Dshot sequence first".to_string()
-                // }
-
-                // loop over sequence
-                while (!term.load(Ordering::Relaxed))
-                    && (now.elapsed().as_millis())
-                        < self.dshot_sequence[self.dshot_sequence.len() - 1][0]
-                {
-                    // Write throttle command to bluepill
-                    let time = now.elapsed().as_millis();
-                    write_buf = ArrayString::<[_; 64]>::new();
-                    if time <= self.dshot_sequence[i][0] {
-                        writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
-                        let _ = bluepill.port.write(write_buf.as_bytes());
-                        // println!("{write_buf}")
-                    } else if time > self.dshot_sequence[i][0] {
-                        i += 1;
-                    }
-
-                    // Read back sensor data from bluepill
-                    let mut input_buffer = ArrayString::<[_; 64]>::new();
-                    let mut data_buffer = ArrayString::<[_; 64]>::new();
-                    let mut buf = [0];
-                    let mut read = true;
-                    while read {
-                        let _ = bluepill.port.read(&mut buf);
-                        input_buffer.push(buf[0] as char);
-                        if let Some(data) = input_buffer.strip_suffix('\n') {
-                            data_buffer.push_str(&format!("{},", &time.to_string()));
-                            data_buffer.push_str(data);
-                            read = false;
-                        }
-                    }
-                    println!("{data_buffer}");
-                    data_vector.push(data_buffer);
+                if self.gen_seq {
+                    self.run_measurement()
+                } else {
+                    self.log_text = "please generate a sequence first".to_string()
                 }
-
-                // Exit procedure: write data into file, send 0 to motor and clear buffer
-                for i in &data_vector {
-                    writeln!(file, "{i}").expect("Could not write file");
-                }
-                writeln!(write_buf, "A{}", 000).unwrap();
-                bluepill.clear_buffers();
-                println!("buffers cleared");
             }
         });
 

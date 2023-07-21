@@ -1,5 +1,6 @@
 use crate::containers::ComboBox;
 use eframe::egui::*;
+
 pub fn generate_sequence(max_value: u128, time_per_step: u128, step_size: u128) -> Vec<[u128; 2]> {
     let mut time = 0;
     let mut dshot_value = 0;
@@ -30,7 +31,7 @@ pub struct Port {
     pub port: Box<dyn serialport::SerialPort>,
 }
 impl Port {
-    // Code below is for Option <Port> rather than returning a Port
+    // Code below is for Result <Port> rather than returning a Port
     // pub fn open(portname: &str) -> Result<Port, serialport::Error> {
     //     let port_name = portname;
     //     match serialport::open(&port_name) {
@@ -42,6 +43,7 @@ impl Port {
     //         }
     //         Err(e) => Err(e),
     //     }
+    // }
 
     pub fn open(portname: &str) -> Port {
         let port_name = portname;
