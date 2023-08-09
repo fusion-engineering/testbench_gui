@@ -1,5 +1,15 @@
 use crate::containers::ComboBox;
 use eframe::egui::*;
+use std::process::Command;
+
+pub fn plot_data(filename: &String) {
+    let _child = Command::new("python3")
+        .arg("src/main.py")
+        .arg("--filename")
+        .arg(filename)
+        .spawn()
+        .expect("Failed to start Python script");
+}
 
 pub fn generate_sequence(max_value: u128, time_per_step: u128, step_size: u128) -> Vec<[u128; 2]> {
     let mut time = 0;

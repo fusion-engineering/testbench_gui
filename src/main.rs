@@ -37,6 +37,7 @@ pub struct MyApp {
     ports_available: String,
     // usb_connected: bool,
     // bluepill: Option<Port>,
+    motor_poles: f64,
 }
 impl MyApp {
     fn run_measurement(&self) {
@@ -49,19 +50,31 @@ impl MyApp {
         let mut file = fs::File::create(&self.filename).expect("Error creating file");
         let mut write_buf = ArrayString::<[_; 64]>::new();
         let mut data_vector: std::vec::Vec<ArrayString<[_; 64]>> = Vec::new();
-        let mut i = 0;
-        let now = Instant::now();
 
         let mut bluepill = Port::open(&self.serial_port);
+        // match Port::open(&self.serial_port) {
+        //     Port => let mut bluepill = Port;
+        // }
 
+        let mut i = 0;
+        let mut dshot: f64 = 0.;
+        let max_dshot_step = 0.2;
+        let now = Instant::now();
         while (!term.load(Ordering::Relaxed))
             && (now.elapsed().as_millis()) < self.dshot_sequence[self.dshot_sequence.len() - 1][0]
         {
             // Write throttle command to bluepill
             let time = now.elapsed().as_millis();
+
             write_buf = ArrayString::<[_; 64]>::new();
             if time <= self.dshot_sequence[i][0] {
-                writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
+                if (dshot.round() as u128) < self.dshot_sequence[i][1] {
+                    dshot += max_dshot_step;
+                } else if (dshot.round() as u128) > self.dshot_sequence[i][1] {
+                    dshot -= max_dshot_step;
+                }
+                // writeln!(write_buf, "A{}", self.dshot_sequence[i][1]).unwrap();
+                writeln!(write_buf, "A{}", dshot.round() as u128).unwrap();
                 let _ = bluepill.port.write(write_buf.as_bytes());
                 println!("{write_buf}")
             } else if time > self.dshot_sequence[i][0] {
@@ -73,10 +86,8 @@ impl MyApp {
             let mut data_buffer = ArrayString::<[_; 64]>::new();
             let mut buf = [0];
             let mut read = true;
-            let mut read_timeout_counter = 0;
-            while read && read_timeout_counter < 100 {
-                read_timeout_counter += 1;
-                println!("{read_timeout_counter}");
+            // let mut read_timeout_counter = 0;
+            while read {
                 let _ = bluepill.port.read(&mut buf);
                 input_buffer.push(buf[0] as char);
                 if let Some(data) = input_buffer.strip_suffix('\n') {
@@ -116,6 +127,7 @@ impl Default for MyApp {
             ports_available: "".to_string(),
             // usb_connected: false,
             // bluepill: None,
+            motor_poles: 7.,
         }
     }
 }
@@ -183,6 +195,14 @@ impl eframe::App for MyApp {
                 ui.text_edit_singleline(&mut self.filename)
                     .labelled_by(name_label.id);
             });
+            ui.separator();
+            ui.horizontal(|ui| {
+                let _ = ui.label("Number of motor poles ");
+                ui.add(egui::Slider::new(&mut self.motor_poles, 5.0..=25.0).step_by(1.0));
+            });
+            if ui.button("plot data").clicked() {
+                plot_data(&self.filename);
+            }
 
             // if ui.button("connect usb").clicked() {
             // self.log_text = "".to_string();
@@ -210,8 +230,8 @@ impl eframe::App for MyApp {
                 .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
                     for dshot in [
-                        500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700,
-                        1800, 1900, 2000,
+                        0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300,
+                        1400, 1500, 1600, 1700, 1800, 1900, 2000,
                     ] {
                         ui.selectable_value(&mut self.max_value, dshot, dshot.to_string());
                     }
@@ -220,7 +240,7 @@ impl eframe::App for MyApp {
                 .selected_text(format!("{:?}", self.step_size))
                 .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for step_size in [100, 200, 300, 400, 500] {
+                    for step_size in [10, 20, 50, 100, 200, 300, 400, 500] {
                         ui.selectable_value(&mut self.step_size, step_size, step_size.to_string());
                     }
                 });
@@ -229,7 +249,7 @@ impl eframe::App for MyApp {
                 .selected_text(format!("{:?}", self.time_per_step))
                 .width(ui.available_width() / 2.0)
                 .show_ui(ui, |ui| {
-                    for time in [100, 200, 500, 1000, 2000] {
+                    for time in [100, 200, 500, 1000, 2000, 4000, 10000] {
                         ui.selectable_value(&mut self.time_per_step, time, time.to_string());
                     }
                 });
