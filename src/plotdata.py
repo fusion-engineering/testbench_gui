@@ -13,21 +13,6 @@ def bwfilter(data, wc):
     return filtered
 
 
-def test_bwfilter():
-    fs = 2000
-    t = 2
-    w1 = 3
-    w2 = 200
-    x = np.linspace(0, t, t * fs)
-    y = np.sin(w1 * 2 * 3.14 * x) + np.sin(w2 * 2 * 3.14 * x)
-
-    y2 = bwfilter(y, 20)
-    plt.plot(x, y)
-    plt.plot(x, y2)
-    plt.show()
-    bwfilter(data)
-
-
 def process_data(df):
     df.columns = ["time", "throttle", "rpm", "current", "thrust", "torque"]
     thrust_offset = 62571
