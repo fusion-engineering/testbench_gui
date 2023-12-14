@@ -18,9 +18,9 @@ def process_data(df):
     thrust_offset = 62571
     df["thrust"] = -df["thrust"] - thrust_offset
     df["filtered"] = bwfilter(df["current"], wc=10)
-    
+
     # CALIBRATION DATA: thrust [grams] = 0.00964 * measurement
-    df["thrust"] = df["thrust"]*0.00964
+    df["thrust"] = df["thrust"] * 0.00964
 
 
 def plot(df, show=True):
@@ -49,18 +49,18 @@ def plot(df, show=True):
     # plt.hlines(df["thrust"].mean(),0,df.shape[0],linestyles='--',colors='r')
     ax4.set_title("thrust")
     ax4.set_xlabel("time [ms]")
-    ax4.set_ylabel("thrust[N]")
+    ax4.set_ylabel("thrust[grams]")
 
     ax5 = plt.subplot(2, 3, 5)
     plt.plot(df["time"], df["torque"])
     ax5.set_title("torque")
     ax5.set_xlabel("time [ms]")
     ax5.set_ylabel("torque [Nm]")
-    
-    ax6 = plt.subplot(2,3,6)
-    plt.plot(df["rpm"],df["thrust"])
+
+    ax6 = plt.subplot(2, 3, 6)
+    plt.plot(df["rpm"], df["thrust"])
     ax6.set_title("rpm vs thrust")
     ax6.set_xlabel("rpm")
-    ax6.set_ylabel("thrust")
+    ax6.set_ylabel("thrust[grams]")
     if show:
         plt.show()
